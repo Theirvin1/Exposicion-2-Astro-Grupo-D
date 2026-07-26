@@ -1,0 +1,674 @@
+---
+// ==================================================
+// DEMO-MARISCAL / astro-cliente / src/pages/index.astro
+// ==================================================
+// Cliente de demostración BIOPET.
+//
+// Astro NO se conecta directamente a PostgreSQL. Esta página consume la
+// API REST de Spring Boot (http://localhost:8080) mediante fetch nativo.
+// Spring Boot es quien habla con PostgreSQL a través de Spring Data JPA,
+// Hibernate y el driver oficial de PostgreSQL.
+//
+// Esta es la VERSIÓN COMPLETA DE RESPALDO. Todos los bloques GET / POST /
+// PUT / DELETE ya están implementados. Se accede desde /respaldo y sirve
+// para recuperar la demostración si se comete un error al pegar código.
+---
+
+<html lang="es">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+		<title>BIOPET - Respaldo funcional</title>
+	</head>
+	<body>
+		<header class="cabecera">
+			<h1>🐾 Sistema BIOPET</h1>
+			<p>
+				Demostración académica — materia <strong>Aplicaciones Web</strong>.
+				Arquitectura: <code>Astro</code> → API REST <code>Spring Boot</code> →
+				<code>PostgreSQL</code> (JPA / Hibernate).
+			</p>
+			<p>
+				Estado de conexión con la API:
+				<span id="estado-conexion" class="estado">Verificando...</span>
+			</p>
+		</header>
+
+		<main>
+			<!-- ================================================== -->
+			<!-- SECCIÓN: INICIO DE SESIÓN                            -->
+			<!-- ================================================== -->
+			<section class="tarjeta" id="seccion-login">
+				<h2>1. Iniciar sesión <span class="badge badge-post">POST</span></h2>
+				<p class="ayuda">
+					Credenciales de demostración precargadas. Al enviar, el cliente:
+					1) llama a <code>POST /api/auth/login</code>, 2) guarda el
+					<code>accessToken</code>, 3) llama a <code>GET /api/usuarios/me</code>
+					para obtener el ID real del usuario autenticado.
+				</p>
+				<form id="form-login">
+					<label for="login-email">Correo</label>
+					<input id="login-email" name="email" type="email" value="admin@biopet.ec" required />
+
+					<label for="login-password">Contraseña</label>
+					<input id="login-password" name="password" type="password" value="Admin123*" required />
+
+					<button type="submit">Iniciar sesión</button>
+				</form>
+				<p id="mensaje-login" class="mensaje"></p>
+			</section>
+
+			<!-- ================================================== -->
+			<!-- SECCIÓN: LISTADO DE MASCOTAS (GET)                   -->
+			<!-- ================================================== -->
+			<section class="tarjeta" id="seccion-mascotas">
+				<h2>2. Mascotas registradas <span class="badge badge-get">GET</span></h2>
+				<p class="ayuda">
+					Consulta <code>GET /api/mascotas</code> con el token guardado.
+					La API pagina los resultados; el cliente procesa <code>datos.content</code>.
+				</p>
+				<button type="button" id="btn-refrescar">Actualizar lista (GET)</button>
+				<p id="mensaje-mascotas" class="mensaje"></p>
+				<table class="tabla" id="tabla-mascotas">
+					<thead>
+						<tr>
+							<th>ID</th>
+							<th>Nombre</th>
+							<th>Especie</th>
+							<th>Raza</th>
+							<th>Nacimiento</th>
+							<th>Dueño</th>
+							<th>Acciones</th>
+						</tr>
+					</thead>
+					<tbody id="tabla-mascotas-body">
+						<tr>
+							<td colspan="7" class="vacio">
+								Sin datos todavía. Pega el bloque GET y pulsa "Actualizar lista".
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</section>
+
+			<!-- ================================================== -->
+			<!-- SECCIÓN: REGISTRAR / EDITAR MASCOTA (POST y PUT)     -->
+			<!-- ================================================== -->
+			<section class="tarjeta" id="seccion-form-mascota">
+				<h2>
+					3. Registrar / editar mascota
+					<span class="badge badge-post">POST</span>
+					<span class="badge badge-put">PUT</span>
+				</h2>
+				<p class="ayuda">
+					Crear usa <code>POST /api/mascotas</code>. Editar usa
+					<code>PUT /api/mascotas/&#123;id&#125;</code>. El <code>duenioId</code> se toma
+					del usuario autenticado (obtenido en el login), nunca se asume que sea 1.
+				</p>
+				<form id="form-mascota">
+					<label for="mascota-nombre">Nombre</label>
+					<input id="mascota-nombre" name="nombre" type="text" maxlength="50" required />
+
+					<label for="mascota-especie">Especie</label>
+					<input id="mascota-especie" name="especie" type="text" maxlength="30" required placeholder="Perro, Gato..." />
+
+					<label for="mascota-raza">Raza</label>
+					<input id="mascota-raza" name="raza" type="text" maxlength="50" required />
+
+					<label for="mascota-fecha-nacimiento">Fecha de nacimiento</label>
+					<input id="mascota-fecha-nacimiento" name="fechaNacimiento" type="date" required />
+
+					<div class="botones-form">
+						<button type="submit" id="btn-guardar-mascota">Registrar mascota</button>
+						<button type="button" id="btn-cancelar-edicion" class="secundario oculto">
+							Cancelar edición
+						</button>
+					</div>
+				</form>
+			</section>
+		</main>
+
+		<footer>
+			<p>
+				DEMO-MARISCAL · BIOPET · Astro consume la API REST, nunca la base de datos directamente.
+			</p>
+		</footer>
+
+		<style>
+			:root {
+				--color-primario: #1f6f5c;
+				--color-primario-oscuro: #144c3f;
+				--color-fondo: #f6f8f7;
+				--color-borde: #d7ded9;
+				--color-texto: #1f2a24;
+				--color-exito: #1e7e34;
+				--color-error: #b3261e;
+				font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+			}
+
+			* {
+				box-sizing: border-box;
+			}
+
+			body {
+				margin: 0;
+				background: var(--color-fondo);
+				color: var(--color-texto);
+			}
+
+			.cabecera {
+				background: var(--color-primario);
+				color: white;
+				padding: 1.5rem 2rem;
+			}
+
+			.cabecera h1 {
+				margin: 0 0 0.25rem 0;
+			}
+
+			.cabecera code {
+				background: rgba(255, 255, 255, 0.15);
+				padding: 0.1rem 0.35rem;
+				border-radius: 4px;
+			}
+
+			main {
+				max-width: 900px;
+				margin: 0 auto;
+				padding: 1.5rem 1rem 3rem 1rem;
+				display: flex;
+				flex-direction: column;
+				gap: 1.5rem;
+			}
+
+			.tarjeta {
+				background: white;
+				border: 1px solid var(--color-borde);
+				border-radius: 10px;
+				padding: 1.25rem 1.5rem;
+			}
+
+			.tarjeta h2 {
+				margin-top: 0;
+				font-size: 1.15rem;
+			}
+
+			.ayuda {
+				font-size: 0.9rem;
+				color: #4b5a52;
+			}
+
+			.badge {
+				display: inline-block;
+				font-size: 0.7rem;
+				font-weight: 700;
+				letter-spacing: 0.03em;
+				padding: 0.15rem 0.5rem;
+				border-radius: 999px;
+				color: white;
+				vertical-align: middle;
+			}
+
+			.badge-get { background: #2563eb; }
+			.badge-post { background: #16a34a; }
+			.badge-put { background: #d97706; }
+			.badge-delete { background: #dc2626; }
+
+			form {
+				display: flex;
+				flex-direction: column;
+				gap: 0.5rem;
+				max-width: 420px;
+			}
+
+			label {
+				font-size: 0.85rem;
+				font-weight: 600;
+			}
+
+			input {
+				padding: 0.5rem 0.6rem;
+				border: 1px solid var(--color-borde);
+				border-radius: 6px;
+				font-size: 1rem;
+			}
+
+			button {
+				cursor: pointer;
+				border: none;
+				border-radius: 6px;
+				padding: 0.55rem 1rem;
+				background: var(--color-primario);
+				color: white;
+				font-weight: 600;
+				margin-top: 0.4rem;
+			}
+
+			button:hover {
+				background: var(--color-primario-oscuro);
+			}
+
+			button.secundario {
+				background: #6b7280;
+			}
+
+			button.peligro {
+				background: var(--color-error);
+			}
+
+			.botones-form {
+				display: flex;
+				gap: 0.5rem;
+			}
+
+			.oculto {
+				display: none !important;
+			}
+
+			.mensaje {
+				min-height: 1.2rem;
+				font-size: 0.9rem;
+				font-weight: 600;
+			}
+
+			.mensaje.exito { color: var(--color-exito); }
+			.mensaje.error { color: var(--color-error); }
+
+			.estado {
+				font-weight: 700;
+			}
+
+			.estado--ok { color: #a7f3d0; }
+			.estado--error { color: #fecaca; }
+
+			.tabla {
+				width: 100%;
+				border-collapse: collapse;
+				margin-top: 0.75rem;
+				font-size: 0.9rem;
+			}
+
+			.tabla th,
+			.tabla td {
+				border-bottom: 1px solid var(--color-borde);
+				padding: 0.45rem 0.4rem;
+				text-align: left;
+			}
+
+			.tabla .vacio {
+				color: #6b7280;
+				font-style: italic;
+			}
+
+			.tabla button {
+				margin: 0 0.15rem;
+				padding: 0.25rem 0.55rem;
+				font-size: 0.8rem;
+			}
+
+			footer {
+				text-align: center;
+				font-size: 0.8rem;
+				color: #6b7280;
+				padding: 1rem;
+			}
+		</style>
+
+		<script>
+			const API_BASE = 'http://localhost:8080';
+			const TOKEN_KEY = 'biopet_access_token';
+			const USUARIO_ID_KEY = 'biopet_usuario_id';
+
+			/** @type {any[]} */
+			let mascotasCache = [];
+			/** @type {number|null} */
+			let mascotaIdSeleccionada = null;
+
+			// --------------------------------------------------
+			// Utilidades de interfaz
+			// --------------------------------------------------
+			function mostrarMensaje(seccion, texto, tipo) {
+				const elementoId = seccion === 'login' ? 'mensaje-login' : 'mensaje-mascotas';
+				const elemento = document.getElementById(elementoId);
+				if (!elemento) return;
+				elemento.textContent = texto;
+				elemento.className = 'mensaje' + (tipo ? ' ' + tipo : '');
+			}
+
+			// Traduce errores HTTP comunes (400, 401, 403, 404, validación) a
+			// mensajes claros para la exposición. Los errores de red (backend
+			// apagado, CORS bloqueado) se manejan aparte, en el catch de cada
+			// función, porque ni siquiera llegan a tener una "respuesta" HTTP.
+			async function manejarErrorHttp(respuesta, seccion) {
+				let detalle = '';
+				try {
+					const cuerpo = await respuesta.json();
+					detalle = cuerpo.message || cuerpo.error || '';
+				} catch (_error) {
+					// Respuesta sin cuerpo JSON (por ejemplo, un 401 del filtro de seguridad)
+				}
+				const mensajesPorEstado = {
+					400: 'Solicitud inválida o datos de validación incorrectos.',
+					401: 'No autenticado: el token es inválido o venció. Vuelve a iniciar sesión.',
+					403: 'Acceso denegado: el usuario no tiene permisos para esta acción.',
+					404: 'El recurso solicitado no existe.',
+				};
+				const base = mensajesPorEstado[respuesta.status] || ('Error HTTP ' + respuesta.status + '.');
+				mostrarMensaje(seccion, detalle ? (base + ' (' + detalle + ')') : base, 'error');
+			}
+
+			function renderMascotas(mascotas) {
+				const cuerpo = document.getElementById('tabla-mascotas-body');
+				if (!cuerpo) return;
+				cuerpo.innerHTML = '';
+
+				if (!mascotas || mascotas.length === 0) {
+					const fila = document.createElement('tr');
+					fila.innerHTML = '<td colspan="7" class="vacio">No hay mascotas registradas todavía.</td>';
+					cuerpo.appendChild(fila);
+					return;
+				}
+
+				for (const mascota of mascotas) {
+					const fila = document.createElement('tr');
+
+					const celdaId = document.createElement('td');
+					celdaId.textContent = mascota.id;
+					const celdaNombre = document.createElement('td');
+					celdaNombre.textContent = mascota.nombre;
+					const celdaEspecie = document.createElement('td');
+					celdaEspecie.textContent = mascota.especie;
+					const celdaRaza = document.createElement('td');
+					celdaRaza.textContent = mascota.raza;
+					const celdaFecha = document.createElement('td');
+					celdaFecha.textContent = mascota.fechaNacimiento;
+					const celdaDuenio = document.createElement('td');
+					celdaDuenio.textContent = mascota.duenioNombre || mascota.duenioId;
+
+					const celdaAcciones = document.createElement('td');
+
+					const botonEditar = document.createElement('button');
+					botonEditar.type = 'button';
+					botonEditar.textContent = 'Editar';
+					botonEditar.addEventListener('click', () => cargarMascotaParaEditar(mascota));
+
+					const botonEliminar = document.createElement('button');
+					botonEliminar.type = 'button';
+					botonEliminar.className = 'peligro';
+					botonEliminar.textContent = 'Eliminar';
+					botonEliminar.addEventListener('click', () => prepararEliminacion(mascota.id));
+
+					celdaAcciones.appendChild(botonEditar);
+					celdaAcciones.appendChild(botonEliminar);
+
+					fila.appendChild(celdaId);
+					fila.appendChild(celdaNombre);
+					fila.appendChild(celdaEspecie);
+					fila.appendChild(celdaRaza);
+					fila.appendChild(celdaFecha);
+					fila.appendChild(celdaDuenio);
+					fila.appendChild(celdaAcciones);
+
+					cuerpo.appendChild(fila);
+				}
+			}
+
+			function limpiarFormularioMascota() {
+				const formulario = document.getElementById('form-mascota');
+				if (formulario instanceof HTMLFormElement) formulario.reset();
+			}
+
+			function cargarMascotaParaEditar(mascota) {
+				mascotaIdSeleccionada = mascota.id;
+				document.getElementById('mascota-nombre').value = mascota.nombre;
+				document.getElementById('mascota-especie').value = mascota.especie;
+				document.getElementById('mascota-raza').value = mascota.raza;
+				document.getElementById('mascota-fecha-nacimiento').value = mascota.fechaNacimiento;
+
+				document.getElementById('btn-guardar-mascota').textContent = 'Actualizar mascota (PUT)';
+				document.getElementById('btn-cancelar-edicion').classList.remove('oculto');
+				mostrarMensaje('mascotas', 'Editando mascota #' + mascota.id + '.', '');
+			}
+
+			function cancelarEdicion() {
+				mascotaIdSeleccionada = null;
+				limpiarFormularioMascota();
+				document.getElementById('btn-guardar-mascota').textContent = 'Registrar mascota';
+				document.getElementById('btn-cancelar-edicion').classList.add('oculto');
+			}
+
+			function prepararEliminacion(id) {
+				mascotaIdSeleccionada = id;
+				eliminarMascota();
+			}
+
+			// --------------------------------------------------
+			// Estado de conexión con la API
+			// --------------------------------------------------
+			async function verificarConexion() {
+				const indicador = document.getElementById('estado-conexion');
+				if (!indicador) return;
+				try {
+					const respuesta = await fetch(API_BASE + '/actuator/health');
+					if (respuesta.ok) {
+						const datos = await respuesta.json();
+						indicador.textContent = datos.status === 'UP'
+							? 'Conectado al backend (UP)'
+							: ('Backend responde con estado: ' + datos.status);
+						indicador.className = 'estado estado--ok';
+					} else {
+						indicador.textContent = 'El backend respondió con un error (' + respuesta.status + ').';
+						indicador.className = 'estado estado--error';
+					}
+				} catch (_error) {
+					indicador.textContent = 'Backend apagado o no accesible. Revisa Docker Compose / CORS.';
+					indicador.className = 'estado estado--error';
+				}
+			}
+
+
+			async function iniciarSesion(evento) {
+				evento.preventDefault();
+				mostrarMensaje('login', '', '');
+
+				const email = document.getElementById('login-email').value.trim();
+				const password = document.getElementById('login-password').value;
+
+				try {
+					const respuestaLogin = await fetch(API_BASE + '/api/auth/login', {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify({ email, password }),
+					});
+
+					if (!respuestaLogin.ok) {
+						await manejarErrorHttp(respuestaLogin, 'login');
+						return;
+					}
+
+					const datosLogin = await respuestaLogin.json();
+					sessionStorage.setItem(TOKEN_KEY, datosLogin.accessToken);
+
+					const respuestaMe = await fetch(API_BASE + '/api/usuarios/me', {
+						method: 'GET',
+						headers: { Authorization: 'Bearer ' + datosLogin.accessToken },
+					});
+
+					if (!respuestaMe.ok) {
+						await manejarErrorHttp(respuestaMe, 'login');
+						return;
+					}
+
+					const usuario = await respuestaMe.json();
+					sessionStorage.setItem(USUARIO_ID_KEY, String(usuario.id));
+
+					mostrarMensaje('login', 'Sesión iniciada como ' + usuario.nombre + ' (' + usuario.rol + ').', 'exito');
+				} catch (error) {
+					mostrarMensaje('login', 'No se pudo conectar con el backend: ' + error.message, 'error');
+				}
+			}
+
+			async function listarMascotas() {
+				mostrarMensaje('mascotas', '', '');
+				const token = sessionStorage.getItem(TOKEN_KEY);
+				if (!token) {
+					mostrarMensaje('mascotas', 'Debes iniciar sesión antes de listar mascotas.', 'error');
+					return;
+				}
+				try {
+					const respuesta = await fetch(API_BASE + '/api/mascotas', {
+						method: 'GET',
+						headers: { Authorization: 'Bearer ' + token },
+					});
+					if (!respuesta.ok) {
+						await manejarErrorHttp(respuesta, 'mascotas');
+						return;
+					}
+					const datos = await respuesta.json();
+					const mascotas = Array.isArray(datos) ? datos : (datos.content ?? []);
+					mascotasCache = mascotas;
+					renderMascotas(mascotas);
+					mostrarMensaje('mascotas', 'Se listaron ' + mascotas.length + ' mascota(s) desde PostgreSQL.', 'exito');
+				} catch (error) {
+					mostrarMensaje('mascotas', 'No se pudo conectar con el backend: ' + error.message, 'error');
+				}
+			}
+
+			async function registrarMascota() {
+				const token = sessionStorage.getItem(TOKEN_KEY);
+				const duenioId = sessionStorage.getItem(USUARIO_ID_KEY);
+				if (!token || !duenioId) {
+					mostrarMensaje('mascotas', 'Debes iniciar sesión antes de registrar una mascota.', 'error');
+					return;
+				}
+				const nombre = document.getElementById('mascota-nombre').value.trim();
+				const especie = document.getElementById('mascota-especie').value.trim();
+				const raza = document.getElementById('mascota-raza').value.trim();
+				const fechaNacimiento = document.getElementById('mascota-fecha-nacimiento').value;
+				if (!nombre || !especie || !raza || !fechaNacimiento) {
+					mostrarMensaje('mascotas', 'Completa todos los campos del formulario.', 'error');
+					return;
+				}
+				try {
+					const respuesta = await fetch(API_BASE + '/api/mascotas', {
+						method: 'POST',
+						headers: {
+							'Content-Type': 'application/json',
+							Authorization: 'Bearer ' + token,
+						},
+						body: JSON.stringify({
+							duenioId: Number(duenioId),
+							nombre,
+							especie,
+							raza,
+							fechaNacimiento,
+						}),
+					});
+					if (!respuesta.ok) {
+						await manejarErrorHttp(respuesta, 'mascotas');
+						return;
+					}
+					const mascotaCreada = await respuesta.json();
+					mostrarMensaje('mascotas', 'Mascota "' + mascotaCreada.nombre + '" registrada correctamente.', 'exito');
+					limpiarFormularioMascota();
+					await listarMascotas();
+				} catch (error) {
+					mostrarMensaje('mascotas', 'No se pudo conectar con el backend: ' + error.message, 'error');
+				}
+			}
+
+			async function actualizarMascota() {
+				const token = sessionStorage.getItem(TOKEN_KEY);
+				if (!token || !mascotaIdSeleccionada) {
+					mostrarMensaje('mascotas', 'Selecciona una mascota para editar.', 'error');
+					return;
+				}
+				const nombre = document.getElementById('mascota-nombre').value.trim();
+				const especie = document.getElementById('mascota-especie').value.trim();
+				const raza = document.getElementById('mascota-raza').value.trim();
+				const fechaNacimiento = document.getElementById('mascota-fecha-nacimiento').value;
+				const duenioId = sessionStorage.getItem(USUARIO_ID_KEY);
+				if (!nombre || !especie || !raza || !fechaNacimiento) {
+					mostrarMensaje('mascotas', 'Completa todos los campos del formulario.', 'error');
+					return;
+				}
+				try {
+					const respuesta = await fetch(API_BASE + '/api/mascotas/' + mascotaIdSeleccionada, {
+						method: 'PUT',
+						headers: {
+							'Content-Type': 'application/json',
+							Authorization: 'Bearer ' + token,
+						},
+						body: JSON.stringify({
+							duenioId: Number(duenioId),
+							nombre,
+							especie,
+							raza,
+							fechaNacimiento,
+						}),
+					});
+					if (!respuesta.ok) {
+						await manejarErrorHttp(respuesta, 'mascotas');
+						return;
+					}
+					const mascotaActualizada = await respuesta.json();
+					mostrarMensaje('mascotas', 'Mascota "' + mascotaActualizada.nombre + '" actualizada correctamente.', 'exito');
+					cancelarEdicion();
+					await listarMascotas();
+				} catch (error) {
+					mostrarMensaje('mascotas', 'No se pudo conectar con el backend: ' + error.message, 'error');
+				}
+			}
+
+			async function eliminarMascota() {
+				const token = sessionStorage.getItem(TOKEN_KEY);
+				if (!token || !mascotaIdSeleccionada) {
+					mostrarMensaje('mascotas', 'Selecciona una mascota para eliminar.', 'error');
+					return;
+				}
+				const confirmado = confirm('¿Eliminar esta mascota? Esta acción realiza un borrado lógico.');
+				if (!confirmado) {
+					return;
+				}
+				try {
+					const respuesta = await fetch(API_BASE + '/api/mascotas/' + mascotaIdSeleccionada, {
+						method: 'DELETE',
+						headers: { Authorization: 'Bearer ' + token },
+					});
+					if (respuesta.status === 204) {
+						mostrarMensaje('mascotas', 'Mascota eliminada correctamente (borrado lógico).', 'exito');
+						mascotaIdSeleccionada = null;
+						await listarMascotas();
+						return;
+					}
+					if (!respuesta.ok) {
+						await manejarErrorHttp(respuesta, 'mascotas');
+					}
+				} catch (error) {
+					mostrarMensaje('mascotas', 'No se pudo conectar con el backend: ' + error.message, 'error');
+				}
+			}
+
+			// --------------------------------------------------
+			// Conexión de eventos
+			// --------------------------------------------------
+			document.getElementById('form-login').addEventListener('submit', iniciarSesion);
+
+			document.getElementById('btn-refrescar').addEventListener('click', () => listarMascotas());
+
+			document.getElementById('form-mascota').addEventListener('submit', (evento) => {
+				evento.preventDefault();
+				if (mascotaIdSeleccionada) {
+					actualizarMascota();
+				} else {
+					registrarMascota();
+				}
+			});
+
+			document.getElementById('btn-cancelar-edicion').addEventListener('click', cancelarEdicion);
+
+			verificarConexion();
+		</script>
+	</body>
+</html>

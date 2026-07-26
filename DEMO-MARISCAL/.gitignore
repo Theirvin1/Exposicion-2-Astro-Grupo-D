@@ -1,0 +1,26 @@
+# ==================================================
+# DEMO-MARISCAL/.gitignore
+# ==================================================
+
+# Backend (Java / Maven)
+backend/target/
+*.class
+*.jar
+
+# Astro / Node
+astro-cliente/node_modules/
+astro-cliente/dist/
+astro-cliente/.astro/
+
+# Variables de entorno reales (nunca subir secretos)
+.env
+*.log
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
