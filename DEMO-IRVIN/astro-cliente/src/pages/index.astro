@@ -1,0 +1,454 @@
+---
+// ==================================================
+// SGB-SAAS - Cliente Astro de demostracion
+// ==================================================
+// Pagina unica que consume la API REST de Spring Boot via fetch.
+//
+//   POST /api/auth/login      -> devuelve accessToken + cookie HttpOnly
+//   POST /api/auth/logout     -> revoca el accessToken (Redis blacklist)
+//   POST /api/auth/refresh    -> renueva accessToken via cookie HttpOnly
+//   GET/POST/PUT/DELETE /api/v1/libros  -> CRUD de libros (roles restringidos)
+---
+
+<html lang="es">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>SGB-SAAS · Demo Astro</title>
+		<style>
+			:root { color-scheme: light; }
+			* { box-sizing: border-box; }
+			body {
+				font-family: system-ui, sans-serif;
+				max-width: 960px;
+				margin: 0 auto;
+				padding: 2rem 1.25rem 4rem;
+				background: #f4f6f8;
+				color: #1f2937;
+			}
+			h1 { font-size: 1.6rem; margin-bottom: 0.25rem; }
+			.subtitulo { color: #6b7280; margin-top: 0; }
+			section {
+				background: #fff;
+				border: 1px solid #e2e8f0;
+				border-radius: 10px;
+				padding: 1.25rem 1.5rem;
+				margin-bottom: 1.5rem;
+			}
+			section h2 { margin-top: 0; font-size: 1.1rem; }
+			label { display: block; font-size: 0.85rem; margin: 0.5rem 0 0.2rem; font-weight: 600; }
+			input, select {
+				width: 100%;
+				padding: 0.45rem 0.6rem;
+				border: 1px solid #cbd5e1;
+				border-radius: 6px;
+				font-size: 0.9rem;
+			}
+			.fila { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+			button {
+				margin-top: 0.9rem;
+				padding: 0.5rem 1rem;
+				border: none;
+				border-radius: 6px;
+				background: #2563eb;
+				color: #fff;
+				font-weight: 600;
+				cursor: pointer;
+			}
+			button.secundario { background: #64748b; }
+			button.peligro { background: #dc2626; }
+			button:disabled { opacity: 0.5; cursor: not-allowed; }
+			.mensaje {
+				margin-top: 0.75rem;
+				padding: 0.5rem 0.75rem;
+				border-radius: 6px;
+				font-size: 0.85rem;
+			}
+			.mensaje.exito { background: #dcfce7; color: #166534; }
+			.mensaje.error { background: #fee2e2; color: #991b1b; }
+			table { width: 100%; border-collapse: collapse; margin-top: 1rem; font-size: 0.85rem; }
+			th, td { border-bottom: 1px solid #e2e8f0; padding: 0.4rem 0.5rem; text-align: left; }
+			th { background: #f8fafc; }
+			.acciones button { margin: 0 0.2rem 0 0; padding: 0.25rem 0.5rem; font-size: 0.75rem; }
+			.estado-sesion { font-size: 0.85rem; margin-top: 0.5rem; }
+			code { background: #eef2ff; padding: 0.1rem 0.3rem; border-radius: 4px; }
+		</style>
+	</head>
+	<body>
+		<h1>📚 SGB-SAAS — Cliente Astro (demo)</h1>
+		<p class="subtitulo">
+			Consume la API de Spring Boot en <code>http://localhost:8080</code> mediante
+			<code>fetch</code>. Recuerda agregar <code>http://localhost:4321</code> a los
+			<code>allowedOrigins</code> de <code>SecurityConfig</code> antes de correr esta demo.
+		</p>
+
+		<!-- ============== LOGIN / SESION ============== -->
+		<section>
+			<h2>1. Login / Sesión</h2>
+			<label for="login-correo">Correo</label>
+			<input id="login-correo" type="email" placeholder="admin@sgb-saas.local" />
+			<label for="login-password">Contraseña</label>
+			<input id="login-password" type="password" placeholder="Admin123!" />
+			<button id="btn-login">Iniciar sesión</button>
+			<button id="btn-logout" class="secundario">Cerrar sesión</button>
+			<button id="btn-refresh" class="secundario">Refrescar token</button>
+			<div id="msg-login"></div>
+			<p class="estado-sesion">
+				Sesión: <span id="estado-sesion">sin iniciar</span>
+			</p>
+		</section>
+
+		<!-- ============== LIBROS ============== -->
+		<section>
+			<h2>2. Libros (GET / POST / PUT / DELETE)</h2>
+			<button id="btn-listar">Listar libros</button>
+			<div id="msg-libros"></div>
+			<table id="tabla-libros" style="display:none;">
+				<thead>
+					<tr>
+						<th>ID</th><th>Título</th><th>ISBN</th><th>Año</th><th>Stock</th><th>Acciones</th>
+					</tr>
+				</thead>
+				<tbody id="cuerpo-libros"></tbody>
+			</table>
+
+			<h3 style="margin-top:1.5rem;font-size:0.95rem;">
+				Crear / editar libro
+				<span style="font-weight:400;color:#6b7280;">(requiere rol BIBLIOTECARIO o GERENTE)</span>
+			</h3>
+			<div class="fila">
+				<div>
+					<label for="libro-titulo">Título</label>
+					<input id="libro-titulo" type="text" />
+				</div>
+				<div>
+					<label for="libro-isbn">ISBN</label>
+					<input id="libro-isbn" type="text" placeholder="9781234567890" />
+				</div>
+			</div>
+			<div class="fila">
+				<div>
+					<label for="libro-anio">Año de publicación</label>
+					<input id="libro-anio" type="number" placeholder="2024" />
+				</div>
+				<div>
+					<label for="libro-stock-total">Stock total</label>
+					<input id="libro-stock-total" type="number" placeholder="5" />
+				</div>
+			</div>
+			<div class="fila">
+				<div>
+					<label for="libro-stock-disp">Stock disponible</label>
+					<input id="libro-stock-disp" type="number" placeholder="5" />
+				</div>
+				<div>
+					<label for="libro-editorial">ID editorial</label>
+					<input id="libro-editorial" type="number" placeholder="1" />
+				</div>
+			</div>
+			<div class="fila">
+				<div>
+					<label for="libro-idioma">ID idioma</label>
+					<input id="libro-idioma" type="number" placeholder="1" />
+				</div>
+				<div>
+					<label for="libro-estado">ID estado</label>
+					<input id="libro-estado" type="number" placeholder="1" />
+				</div>
+			</div>
+			<button id="btn-crear">Crear libro</button>
+			<button id="btn-actualizar" class="secundario">Guardar edición</button>
+			<button id="btn-cancelar-edicion" class="secundario">Cancelar edición</button>
+			<div id="msg-libro-form"></div>
+		</section>
+
+		<script>
+			// Config: backend Spring Boot en puerto 8080.
+			// El CORS en SecurityConfig.java permite http://localhost:4321.
+			const API_BASE = 'http://localhost:8080';
+			const TOKEN_KEY = 'sgb_access_token';
+			let libroIdSeleccionado: number | null = null;
+
+			function guardarToken(token: string) {
+				sessionStorage.setItem(TOKEN_KEY, token);
+				actualizarEstadoSesion();
+			}
+			function obtenerToken(): string | null {
+				return sessionStorage.getItem(TOKEN_KEY);
+			}
+			function limpiarToken() {
+				sessionStorage.removeItem(TOKEN_KEY);
+				actualizarEstadoSesion();
+			}
+			function actualizarEstadoSesion() {
+				const el = document.getElementById('estado-sesion')!;
+				el.textContent = obtenerToken() ? 'sesión activa (accessToken en sessionStorage)' : 'sin iniciar';
+			}
+
+			function mostrarMensaje(contenedorId: string, texto: string, tipo: 'exito' | 'error' | '') {
+				const el = document.getElementById(contenedorId)!;
+				el.textContent = texto;
+				el.className = texto ? `mensaje ${tipo}` : '';
+			}
+
+			async function manejarErrorHttp(respuesta: Response, contenedorId: string) {
+				let detalle = `Error HTTP ${respuesta.status}`;
+				try {
+					const cuerpo = await respuesta.json();
+					detalle = cuerpo.message || cuerpo.detail || detalle;
+				} catch {}
+				mostrarMensaje(contenedorId, detalle, 'error');
+			}
+
+			// ── LOGIN ────────────────────────────────────────────
+			// POST /api/auth/login -> AuthController.login()
+			// Devuelve accessToken en body; refreshToken via cookie HttpOnly.
+			// credentials:'include' obligatorio para recibir la cookie.
+			document.getElementById('btn-login')!.addEventListener('click', async () => {
+				const correo = (document.getElementById('login-correo') as HTMLInputElement).value.trim();
+				const password = (document.getElementById('login-password') as HTMLInputElement).value;
+				if (!correo || !password) {
+					mostrarMensaje('msg-login', 'Ingresa correo y contraseña.', 'error');
+					return;
+				}
+				try {
+					const respuesta = await fetch(`${API_BASE}/api/auth/login`, {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						credentials: 'include',
+						body: JSON.stringify({ correo, password }),
+					});
+					if (!respuesta.ok) {
+						await manejarErrorHttp(respuesta, 'msg-login');
+						return;
+					}
+					const datos = await respuesta.json();
+					guardarToken(datos.accessToken);
+					mostrarMensaje('msg-login', `Sesión iniciada (expira en ${datos.expiresIn}s).`, 'exito');
+				} catch (error) {
+					mostrarMensaje('msg-login', `No se pudo conectar con el backend: ${(error as Error).message}`, 'error');
+				}
+			});
+
+			// ── LOGOUT ───────────────────────────────────────────
+			// POST /api/auth/logout -> AuthController.logout()
+			// Agrega el jti del token a blacklist en Redis, limpia cookie.
+			document.getElementById('btn-logout')!.addEventListener('click', async () => {
+				const token = obtenerToken();
+				if (!token) {
+					mostrarMensaje('msg-login', 'No hay una sesión activa.', 'error');
+					return;
+				}
+				try {
+					const respuesta = await fetch(`${API_BASE}/api/auth/logout`, {
+						method: 'POST',
+						credentials: 'include',
+						headers: { Authorization: `Bearer ${token}` },
+					});
+					if (respuesta.status === 204) {
+						limpiarToken();
+						mostrarMensaje('msg-login', 'Sesión cerrada y token revocado.', 'exito');
+						return;
+					}
+					await manejarErrorHttp(respuesta, 'msg-login');
+				} catch (error) {
+					mostrarMensaje('msg-login', `No se pudo conectar con el backend: ${(error as Error).message}`, 'error');
+				}
+			});
+
+			// ── REFRESH ──────────────────────────────────────────
+			// POST /api/auth/refresh -> AuthController.refresh()
+			// Solo envia la cookie HttpOnly, sin headers ni body.
+			document.getElementById('btn-refresh')!.addEventListener('click', async () => {
+				try {
+					const respuesta = await fetch(`${API_BASE}/api/auth/refresh`, {
+						method: 'POST',
+						credentials: 'include',
+					});
+					if (!respuesta.ok) {
+						await manejarErrorHttp(respuesta, 'msg-login');
+						return;
+					}
+					const datos = await respuesta.json();
+					guardarToken(datos.accessToken);
+					mostrarMensaje('msg-login', 'accessToken renovado usando la cookie refreshToken.', 'exito');
+				} catch (error) {
+					mostrarMensaje('msg-login', `No se pudo conectar con el backend: ${(error as Error).message}`, 'error');
+				}
+			});
+
+			// ── LIBROS ───────────────────────────────────────────
+			// Todas las peticiones a /api/v1/libros requieren Authorization: Bearer <token>.
+			// El JwtAuthFilter valida el token contra Redis blacklist y carga el usuario.
+
+			// Renderiza la tabla de libros desde la respuesta paginada del backend.
+			function renderLibros(pagina: any) {
+				const filas = (pagina.content ?? pagina) as any[];
+				const tabla = document.getElementById('tabla-libros')!;
+				const cuerpo = document.getElementById('cuerpo-libros')!;
+				cuerpo.innerHTML = '';
+				for (const libro of filas) {
+					const tr = document.createElement('tr');
+					tr.innerHTML = `
+						<td>${libro.id}</td>
+						<td>${libro.titulo}</td>
+						<td>${libro.isbn}</td>
+						<td>${libro.anioPublicacion}</td>
+						<td>${libro.stockDisponible}/${libro.stockTotal}</td>
+						<td class="acciones">
+							<button data-id="${libro.id}" class="btn-editar secundario">Editar</button>
+							<button data-id="${libro.id}" class="btn-eliminar peligro">Eliminar</button>
+						</td>`;
+					cuerpo.appendChild(tr);
+				}
+				tabla.style.display = filas.length ? 'table' : 'none';
+
+				cuerpo.querySelectorAll('.btn-editar').forEach((btn) =>
+					btn.addEventListener('click', () => cargarLibroEnFormulario(filas, Number((btn as HTMLElement).dataset.id)))
+				);
+				cuerpo.querySelectorAll('.btn-eliminar').forEach((btn) =>
+					btn.addEventListener('click', () => eliminarLibro(Number((btn as HTMLElement).dataset.id)))
+				);
+			}
+
+			// Rellena el formulario con los datos de un libro existente para editarlo.
+			function cargarLibroEnFormulario(libros: any[], id: number) {
+				const libro = libros.find((l) => l.id === id);
+				if (!libro) return;
+				libroIdSeleccionado = id;
+				(document.getElementById('libro-titulo') as HTMLInputElement).value = libro.titulo;
+				(document.getElementById('libro-isbn') as HTMLInputElement).value = libro.isbn;
+				(document.getElementById('libro-anio') as HTMLInputElement).value = libro.anioPublicacion;
+				(document.getElementById('libro-stock-total') as HTMLInputElement).value = libro.stockTotal;
+				(document.getElementById('libro-stock-disp') as HTMLInputElement).value = libro.stockDisponible;
+				(document.getElementById('libro-editorial') as HTMLInputElement).value = libro.editorialId;
+				(document.getElementById('libro-idioma') as HTMLInputElement).value = libro.idiomaId;
+				(document.getElementById('libro-estado') as HTMLInputElement).value = libro.estadoId;
+			}
+
+			// Extrae los campos del formulario como LibroRequestDTO para POST/PUT.
+			function leerFormularioLibro() {
+				return {
+					titulo: (document.getElementById('libro-titulo') as HTMLInputElement).value.trim(),
+					isbn: (document.getElementById('libro-isbn') as HTMLInputElement).value.trim(),
+					anioPublicacion: Number((document.getElementById('libro-anio') as HTMLInputElement).value),
+					resumen: '',
+					portadaUrl: '',
+					editorialId: Number((document.getElementById('libro-editorial') as HTMLInputElement).value),
+					idiomaId: Number((document.getElementById('libro-idioma') as HTMLInputElement).value),
+					estadoId: Number((document.getElementById('libro-estado') as HTMLInputElement).value),
+					stockTotal: Number((document.getElementById('libro-stock-total') as HTMLInputElement).value),
+					stockDisponible: Number((document.getElementById('libro-stock-disp') as HTMLInputElement).value),
+				};
+			}
+
+			// GET /api/v1/libros -> solo lista libros con estado ACTIVO, cache en Redis (300s).
+			async function listarLibros() {
+				const token = obtenerToken();
+				if (!token) {
+					mostrarMensaje('msg-libros', 'Inicia sesión antes de listar libros.', 'error');
+					return;
+				}
+				try {
+					const respuesta = await fetch(`${API_BASE}/api/v1/libros?page=0&size=10`, {
+						method: 'GET',
+						headers: { Authorization: `Bearer ${token}` },
+					});
+					if (!respuesta.ok) {
+						await manejarErrorHttp(respuesta, 'msg-libros');
+						return;
+					}
+					const pagina = await respuesta.json();
+					renderLibros(pagina);
+					mostrarMensaje('msg-libros', `Se listaron ${(pagina.content ?? pagina).length} libro(s).`, 'exito');
+				} catch (error) {
+					mostrarMensaje('msg-libros', `No se pudo conectar con el backend: ${(error as Error).message}`, 'error');
+				}
+			}
+			document.getElementById('btn-listar')!.addEventListener('click', listarLibros);
+
+			// POST /api/v1/libros -> LibroController.crear(), requiere BIBLIOTECARIO+.
+			// @CacheEvict limpia la cache de libros en Redis.
+			document.getElementById('btn-crear')!.addEventListener('click', async () => {
+				const token = obtenerToken();
+				if (!token) {
+					mostrarMensaje('msg-libro-form', 'Inicia sesión antes de crear un libro.', 'error');
+					return;
+				}
+				try {
+					const respuesta = await fetch(`${API_BASE}/api/v1/libros`, {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+						body: JSON.stringify(leerFormularioLibro()),
+					});
+					if (!respuesta.ok) {
+						await manejarErrorHttp(respuesta, 'msg-libro-form');
+						return;
+					}
+					const libro = await respuesta.json();
+					mostrarMensaje('msg-libro-form', `Libro "${libro.titulo}" creado (id ${libro.id}).`, 'exito');
+					await listarLibros();
+				} catch (error) {
+					mostrarMensaje('msg-libro-form', `No se pudo conectar con el backend: ${(error as Error).message}`, 'error');
+				}
+			});
+
+			// PUT /api/v1/libros/{id} -> LibroController.actualizar(), requiere BIBLIOTECARIO+.
+			document.getElementById('btn-actualizar')!.addEventListener('click', async () => {
+				const token = obtenerToken();
+				if (!token || libroIdSeleccionado === null) {
+					mostrarMensaje('msg-libro-form', 'Selecciona un libro (botón Editar) antes de guardar.', 'error');
+					return;
+				}
+				try {
+					const respuesta = await fetch(`${API_BASE}/api/v1/libros/${libroIdSeleccionado}`, {
+						method: 'PUT',
+						headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+						body: JSON.stringify(leerFormularioLibro()),
+					});
+					if (!respuesta.ok) {
+						await manejarErrorHttp(respuesta, 'msg-libro-form');
+						return;
+					}
+					const libro = await respuesta.json();
+					mostrarMensaje('msg-libro-form', `Libro "${libro.titulo}" actualizado.`, 'exito');
+					libroIdSeleccionado = null;
+					await listarLibros();
+				} catch (error) {
+					mostrarMensaje('msg-libro-form', `No se pudo conectar con el backend: ${(error as Error).message}`, 'error');
+				}
+			});
+
+			document.getElementById('btn-cancelar-edicion')!.addEventListener('click', () => {
+				libroIdSeleccionado = null;
+				mostrarMensaje('msg-libro-form', '', '');
+			});
+
+			// DELETE /api/v1/libros/{id} -> soft-delete (cambia estado a DADO_DE_BAJA).
+			async function eliminarLibro(id: number) {
+				const token = obtenerToken();
+				if (!token) {
+					mostrarMensaje('msg-libros', 'Inicia sesión antes de eliminar.', 'error');
+					return;
+				}
+				if (!confirm('¿Eliminar este libro?')) return;
+				try {
+					const respuesta = await fetch(`${API_BASE}/api/v1/libros/${id}`, {
+						method: 'DELETE',
+						headers: { Authorization: `Bearer ${token}` },
+					});
+					if (respuesta.status === 204) {
+						mostrarMensaje('msg-libros', 'Libro eliminado correctamente.', 'exito');
+						await listarLibros();
+						return;
+					}
+					await manejarErrorHttp(respuesta, 'msg-libros');
+				} catch (error) {
+					mostrarMensaje('msg-libros', `No se pudo conectar con el backend: ${(error as Error).message}`, 'error');
+				}
+			}
+
+			actualizarEstadoSesion();
+		</script>
+	</body>
+</html>
