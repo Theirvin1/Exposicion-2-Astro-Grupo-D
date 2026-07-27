@@ -1,0 +1,301 @@
+\documentclass[12pt]{article}
+
+% ---------- Idioma y codificación ----------
+\usepackage[spanish]{babel}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+
+% ---------- Geometría y espaciado ----------
+\usepackage{geometry}
+\geometry{letterpaper, margin=1in}
+\usepackage{setspace}
+\setstretch{1.25}
+
+% ---------- Paquetes generales ----------
+\usepackage{graphicx}
+\usepackage[colorlinks=true, linkcolor=blue, citecolor=blue, urlcolor=blue]{hyperref}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{enumitem}
+\usepackage{listings}
+\usepackage{csquotes}
+
+% ---------- Bibliografía (biblatex + biber) ----------
+\usepackage[
+  backend=biber,
+  style=ieee,
+  doi=true,
+  url=true
+]{biblatex}
+\DeclareFieldFormat{doi}{\href{https://doi.org/#1}{#1}}
+\addbibresource{REFF.bib}
+
+% ---------- Configuración de código ----------
+\definecolor{codebg}{RGB}{245,245,245}
+\definecolor{codekeyword}{RGB}{0,0,180}
+\definecolor{codecomment}{RGB}{95,140,95}
+\definecolor{codestring}{RGB}{163,21,21}
+
+\lstdefinestyle{javaStyle}{
+    backgroundcolor=\color{codebg},
+    commentstyle=\color{codecomment}\itshape,
+    keywordstyle=\color{codekeyword}\bfseries,
+    stringstyle=\color{codestring},
+    basicstyle=\ttfamily\small,
+    breakatwhitespace=false,
+    breaklines=true,
+    captionpos=b,
+    keepspaces=true,
+    numbers=left,
+    numbersep=8pt,
+    numberstyle=\tiny\color{gray},
+    showspaces=false,
+    showstringspaces=false,
+    showtabs=false,
+    tabsize=2,
+    frame=single,
+    rulecolor=\color{gray!40},
+    language=Java,
+    morekeywords={var}
+}
+
+% Estilo "bash": lo usa el bloque de instalación del CLI y el árbol de carpetas.
+% Faltaba esta definición en la versión anterior; por eso fallaba la compilación.
+\lstdefinestyle{bash}{
+    backgroundcolor=\color{codebg},
+    basicstyle=\ttfamily\small,
+    breaklines=true,
+    frame=single,
+    rulecolor=\color{gray!40},
+    numbers=none,
+    showstringspaces=false
+}
+
+\lstset{style=javaStyle}
+
+% ---------- Espaciado de párrafos ----------
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{6pt}
+
+\begin{document}
+\pagestyle{empty}
+\renewcommand{\tablename}{Tabla}
+
+% ============================================================
+%  CARÁTULA
+% ============================================================
+\begin{titlepage}
+\thispagestyle{empty}
+\centering
+\vspace*{0.3cm}
+
+% ---- INSERTAR AQUÍ: logo institucional ----
+\includegraphics[width=3.8cm]{logo_uteq.png}
+
+\vspace{0.8cm}
+
+{\LARGE \textbf{UNIVERSIDAD TÉCNICA ESTATAL DE QUEVEDO}}\par
+\vspace{0.3cm}
+{\large \textbf{FACULTAD DE CIENCIAS DE LA COMPUTACIÓN}}\par
+\vspace{0.3cm}
+{\itshape CARRERA INGENIERÍA DE SOFTWARE}\par
+
+\vspace{0.4cm}
+{\large TEMA:}\par
+\vspace{0.4cm}
+{\Large \textbf{Astro y el Consumo de APIs REST
+Integración con servicios web y bases de datos
+}}\par
+
+\vspace{0.3cm}
+{\small PRESENTADO POR:}\par
+\vspace{0.3cm}
+{\large \textbf{CAJAS IBARRA IRVIN MARCELO}}\par
+{\large \textbf{ESCUDERO PLAZA MARIA DEL ROSARIO}}\par
+{\large \textbf{MARISCAL CABRERA JAIME JOSUE}}\par
+
+\vspace{0.3cm}
+{\large \textbf{CURSO:}}\par
+\vspace{0.3cm}
+{\large \textbf{5TO SOFTWARE ``A''}}\par
+
+\vspace{0.3cm}
+{\large \textbf{FECHA:}}\par
+\vspace{0.3cm}
+{\large \textbf{JULIO DEL 2026}}\par
+\vspace{0.3cm}
+
+{\large \textbf{(SEMANA 13)}}\par
+
+\vfill
+\end{titlepage}
+
+\pagestyle{plain}
+
+\section{Introducción}
+
+En una exposición anterior se revisó Astro desde su parte visual: creación de páginas, componentes y su arquitectura de islas. En esta ocasión, el enfoque se centra en cómo una aplicación construida con Astro puede obtener, enviar y mostrar información por medio de servicios web (APIs REST) conectados con una base de datos real, independientemente del lenguaje o framework en el que dicha API haya sido desarrollada.
+
+\section{Historia y Evolución de Astro}
+
+Astro fue lanzado oficialmente en 2021 como un proyecto de código abierto, impulsado por Fred K. Schott y su equipo, con antecedentes en herramientas previas como Snowpack \parencite{vepsalainen2023disappearing}. Su objetivo inicial fue evitar que los sitios web enviaran una cantidad excesiva de JavaScript innecesario al navegador, adoptando un enfoque \textit{``HTML-first''}: HTML como base, y JavaScript únicamente cuando la interactividad realmente lo requiere.
+
+Con el tiempo, Astro incorporó renderizado del lado del servidor (SSR), endpoints propios y funciones orientadas a aplicaciones más dinámicas, evolucionando de ser un simple generador de sitios estáticos a un framework con capacidades full-stack \parencite{astro_why_docs}. Este tipo de evolución --desde sitios estáticos hacia arquitecturas híbridas que combinan HTML estático con islas de interactividad-- ha sido documentado en la literatura reciente sobre frameworks ``desaparecientes'' (\textit{disappearing frameworks}), que cuestionan el modelo tradicional de aplicaciones de página única (SPA) \parencite{vepsalainen2023rise,vepsalainen2023state}.
+
+\textbf{Línea de tiempo resumida:}
+
+\begin{itemize}[leftmargin=*]
+  \item \textbf{2021:} Lanzamiento oficial como proyecto de código abierto.
+  \item \textbf{Creador:} Fred K. Schott y el equipo de Astro (con la colaboración de Nate Moore).
+  \item \textbf{Evolución:} Surge como evolución de herramientas previas como Snowpack.
+  \item \textbf{Objetivo inicial:} Reducir la cantidad excesiva de JavaScript enviada al navegador.
+  \item \textbf{Filosofía:} Enfoque HTML-first; JavaScript solo cuando se necesita.
+  \item \textbf{Expansión:} Incorporación de SSR, endpoints y funciones para aplicaciones dinámicas.
+\end{itemize}
+
+\section{Características Principales}
+
+Las características de Astro pueden agruparse en tres grandes ideas: rendimiento, flexibilidad y comunicación.
+
+\subsection{Rendimiento}
+
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Arquitectura de islas:} cada componente interactivo se hidrata de forma independiente, mientras el resto de la página permanece como HTML estático \parencite{vepsalainen2023rise}.
+  \item \textbf{Cero JavaScript por defecto:} solo se envía script al navegador cuando el desarrollador lo solicita explícitamente.
+  \item \textbf{SSR y SSG:} Astro puede generar sitios completamente estáticos o renderizar en el servidor bajo demanda \parencite{iop2020rendering}.
+\end{itemize}
+
+\subsection{Flexibilidad}
+
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Multi-framework:} permite integrar componentes de React, Vue, Svelte, entre otros, dentro del mismo proyecto.
+  \item \textbf{Rutas por archivo:} el enrutamiento se define automáticamente según la estructura de carpetas dentro de \texttt{src/pages}.
+\end{itemize}
+
+\subsection{Comunicación}
+
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Consumo de APIs REST:} mediante \texttt{fetch}, Astro puede conectarse con servicios web externos \parencite{fielding2002principled}.
+  \item \textbf{Cualquier lenguaje backend:} se integra con servicios desarrollados en PHP, Python, Java, JavaScript, entre otros.
+  \item \textbf{Separación de capas:} interfaz (Astro), API y base de datos permanecen independientes entre sí.
+\end{itemize}
+
+\section{Astro en la Arquitectura Cliente-Servidor}
+
+El flujo de comunicación sigue el siguiente recorrido:
+
+\begin{center}
+\textbf{Usuario} $\rightarrow$ \textbf{Aplicación Astro} $\rightarrow$ \textbf{API REST} $\rightarrow$ \textbf{ORM / driver} $\rightarrow$ \textbf{Base de datos}
+\end{center}
+
+El usuario interactúa con la aplicación Astro (por ejemplo, para consultar o registrar información). Astro envía una solicitud HTTP a la API REST: una solicitud \texttt{GET} para consultar información, o una solicitud \texttt{POST} para registrar un nuevo dato. La API recibe la solicitud, valida los datos y se comunica con la base de datos mediante un ORM o un driver, que actúa como intermediario para consultar o guardar la información sin necesidad de escribir cada instrucción SQL manualmente. Finalmente, la base de datos devuelve el resultado, la API lo responde en formato JSON, y Astro lo muestra en pantalla.
+
+Es importante recalcar que la API puede estar construida con cualquier tecnología --PHP/Laravel, Python/Django, Java/Spring Boot, JavaScript/Express o NestJS, entre otras-- ya que la comunicación entre Astro y el backend se realiza mediante estándares independientes del lenguaje: HTTP y JSON. Este principio de independencia entre cliente y servidor, junto con la interfaz uniforme y el carácter \textit{stateless} de las peticiones, corresponde precisamente al estilo arquitectónico REST descrito originalmente por Fielding y Taylor \parencite{fielding2002principled}.
+
+\begin{displayquote}
+``Los servicios web son independientes de la plataforma o tecnología desde la cual se consumen.''
+\end{displayquote}
+
+\section{Estructura de Proyecto Generada por el CLI Oficial}
+
+El CLI oficial de Astro se ejecuta con el comando:
+
+\begin{lstlisting}[style=bash, language=bash]
+npm create astro@latest
+\end{lstlisting}
+
+La estructura generada es la siguiente:
+
+\begin{lstlisting}[style=bash, language=bash]
+proyecto-astro/
+|-- public/
+|-- src/
+|   |-- components/
+|   |-- layouts/
+|   `-- pages/
+|-- astro.config.mjs
+|-- package.json
+`-- tsconfig.json
+\end{lstlisting}
+
+\begin{itemize}[leftmargin=*]
+  \item \textbf{public/} -- Contiene imágenes, iconos y otros archivos estáticos.
+  \item \textbf{src/components/} -- Contiene los componentes reutilizables de la interfaz.
+  \item \textbf{src/layouts/} -- Contiene las estructuras comunes de las páginas.
+  \item \textbf{src/pages/} -- Contiene las páginas y rutas del proyecto (enrutamiento por archivo).
+  \item \textbf{astro.config.mjs} -- Contiene la configuración principal de Astro (por ejemplo, el modo \texttt{output: 'server'} necesario para SSR y consumo dinámico de APIs) \parencite{astro_db_docs}.
+  \item \textbf{package.json} -- Registra las dependencias y comandos del proyecto.
+  \item \textbf{tsconfig.json} -- Configuración de TypeScript.
+\end{itemize}
+
+\section{Ventajas y Desventajas}
+
+\subsection{Ventajas}
+
+\begin{itemize}[leftmargin=*]
+  \item Excelente rendimiento.
+  \item Buen posicionamiento SEO.
+  \item Menor cantidad de JavaScript enviado al navegador.
+  \item Compatible con contenido estático y datos dinámicos simultáneamente.
+  \item Puede consumir APIs de diferentes tecnologías (independiente del lenguaje backend).
+  \item Permite separar claramente la interfaz del backend.
+  \item Puede usar renderizado del lado del servidor (SSR) cuando se requiere.
+  \item Buena experiencia de desarrollo (DX).
+\end{itemize}
+
+\subsection{Desventajas}
+
+\begin{itemize}[leftmargin=*]
+  \item No es un framework backend tradicional.
+  \item No posee un ORM obligatorio integrado.
+  \item Sistemas complejos pueden necesitar un backend externo especializado.
+  \item Algunas funciones dinámicas requieren configurar adaptadores según el servidor de despliegue (Node.js, Vercel, Netlify, Cloudflare).
+  \item Su ecosistema backend es todavía menor que el de Laravel, Django o Spring Boot.
+  \item Puede no ser ideal como núcleo de sistemas empresariales orientados completamente al backend.
+\end{itemize}
+
+\section{Casos de Uso Reales}
+
+Astro es útil en proyectos que necesitan mostrar contenido con rapidez, pero que también consultan o envían información dinámica: catálogos de productos, sistemas de reservas, portales informativos, aplicaciones de reportes, paneles administrativos sencillos, blogs con información dinámica y tiendas conectadas con pasarelas de pago.
+
+\subsection{Caso real destacado: Canadian Solar (CSI Plus)}
+
+\textbf{Canadian Solar Inc.} (NASDAQ: CSIQ), fabricante global de energía solar, construyó con Astro la plataforma \textbf{CSI Plus}, orientada a capacitar e informar a integradores solares en Brasil (\url{https://csiplus.canadiansolar.com.br}). Este ejemplo demuestra que Astro no se utiliza únicamente en prácticas académicas o sitios pequeños, sino también en plataformas de empresas internacionales que necesitan presentar información de forma rápida y organizada para usuarios de Latinoamérica \parencite{astro_showcase}.
+
+\section{Tabla Comparativa}
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{@{}p{1.7cm}p{2cm}p{2.6cm}p{3.1cm}p{2.6cm}p{1.8cm}@{}}
+\toprule
+\textbf{Framework} & \textbf{Lenguaje} & \textbf{Enfoque principal} & \textbf{Creación de APIs REST} & \textbf{ORM / acceso a datos} & \textbf{Curva de aprendizaje} \\
+\midrule
+Astro & JavaScript / TypeScript & Framework web full-stack & Puede crear o consumir endpoints & No tiene uno obligatorio & Baja \\
+Express.js & JavaScript / TypeScript & Backend minimalista & Ampliamente usado para crear APIs & Prisma, Sequelize o drivers directos & Media \\
+Laravel & PHP & Backend completo & Herramientas nativas para servicios REST & Eloquent ORM & Media \\
+Django & Python & Backend completo & Django REST Framework & Django ORM & Media-alta \\
+Spring Boot & Java & Backend empresarial completo & Spring Web (\texttt{@RestController}) & JPA / Hibernate & Media-alta \\
+\bottomrule
+\end{tabular}
+\caption{Comparación entre Astro y frameworks backend alternativos}
+\end{table}
+
+Cada framework tiene un propósito diferente. Astro se enfoca en sitios rápidos que pueden crear o consumir endpoints, pero no obliga a utilizar un ORM específico. Spring Boot, Laravel y Django son frameworks backend completos, con ORM propio y mayor capacidad para manejar lógica de negocio compleja \parencite{golzadeh2024testing}. La elección depende de la necesidad del proyecto, no existe un ganador universal.
+
+\section{Conclusiones}
+
+Astro nació principalmente como una herramienta orientada al front-end y al rendimiento, pero actualmente permite consumir APIs REST y ejecutar funciones del lado del servidor. Puede comunicarse con backends desarrollados en distintos lenguajes y tecnologías, ya que los servicios web son independientes de la plataforma que los consume \parencite{fielding2002principled}. La separación entre Astro, la API y la base de datos facilita el mantenimiento del sistema y permite que cada parte evolucione por separado.
+
+Astro no reemplaza por completo a los frameworks backend tradicionales como Laravel, Django o Spring Boot, pero funciona muy bien como capa de presentación conectada a servicios web reales.
+
+\begin{displayquote}
+``Astro permite construir interfaces rápidas y conectarlas con APIs REST independientes de la tecnología utilizada en el backend.''
+\end{displayquote}
+
+% ============================================================
+% REFERENCIAS
+% ============================================================
+\printbibliography
+
+\end{document}
