@@ -97,6 +97,35 @@ const res = await fetch(`${API_URL}/api/conductores`, {
 });
 
 ========================================
+2.1 CONSUMO DE APIs CON POSTMAN
+========================================
+
+--- Registrar Usuario ---
+Method: POST
+URL: http://localhost:8080/api/auth/register
+Body: {"nombre":"Maria Escudero","email":"maria@demo.com","password":"demo123","rol":"ROLE_COORDINADOR"}
+Respuesta: 201 Created + accessToken
+
+--- Login ---
+Method: POST
+URL: http://localhost:8080/api/auth/login
+Body: {"email":"maria@demo.com","password":"demo123"}
+Respuesta: 200 OK + accessToken (usar en Authorization: Bearer <token>)
+
+--- Listar Conductores ---
+Method: GET
+URL: http://localhost:8080/api/conductores
+Header: Authorization: Bearer <token>
+Respuesta: 200 OK + lista paginada
+
+--- Crear Conductor ---
+Method: POST
+URL: http://localhost:8080/api/conductores
+Headers: Authorization: Bearer <token>, Content-Type: application/json
+Body: {"nombres":"Carlos","apellidos":"Mendoza","cedula":"1805060708","numeroLicencia":"LIC-003","tipoLicencia":"A","fechaVencimientoLicencia":"2028-06-30","telefono":"0987654321","email":"carlos@demo.com","estado":"ACTIVO","activo":true}
+Respuesta: 200 OK + conductor creado
+
+========================================
 3. BASE DE DATOS (PostgreSQL)
 ========================================
 
