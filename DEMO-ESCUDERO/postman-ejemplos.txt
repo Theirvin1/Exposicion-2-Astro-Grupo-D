@@ -1,0 +1,114 @@
+========================================
+  EJEMPLOS PARA POSTMAN - SGROAS
+  María Escudero - UTEQ
+========================================
+
+========================================
+1. REGISTRAR USUARIO
+========================================
+
+Method: POST
+URL:    http://localhost:8080/api/auth/register
+Headers:
+  Key: Content-Type    Value: application/json
+
+Body (raw → JSON):
+{
+  "nombre": "Maria Escudero",
+  "email": "maria@demo.com",
+  "password": "demo123",
+  "rol": "ROLE_COORDINADOR"
+}
+
+Respuesta: 201 Created
+→ Copiar el "accessToken" del JSON de respuesta
+
+
+========================================
+2. INICIAR SESIÓN
+========================================
+
+Method: POST
+URL:    http://localhost:8080/api/auth/login
+Headers:
+  Key: Content-Type    Value: application/json
+
+Body (raw → JSON):
+{
+  "email": "maria@demo.com",
+  "password": "demo123"
+}
+
+Respuesta: 200 OK
+→ Copiar el "accessToken" (string que empieza con "eyJ...")
+
+
+========================================
+3. LISTAR CONDUCTORES (GET)
+========================================
+
+Method: GET
+URL:    http://localhost:8080/api/conductores
+Headers:
+  Key: Authorization    Value: Bearer PEGA_TU_TOKEN_AQUI
+
+Ejemplo:
+  Authorization: Bearer eyJhbGciOiJIUzI1NiJ9...
+
+Respuesta: 200 OK
+→ Devuelve lista paginada de conductores
+
+
+========================================
+4. CREAR CONDUCTOR (POST)
+========================================
+
+Method: POST
+URL:    http://localhost:8080/api/conductores
+Headers:
+  Key: Authorization    Value: Bearer PEGA_TU_TOKEN_AQUI
+  Key: Content-Type     Value: application/json
+
+Body (raw → JSON):
+{
+  "nombres": "Carlos",
+  "apellidos": "Mendoza",
+  "cedula": "1805060708",
+  "numeroLicencia": "LIC-003",
+  "tipoLicencia": "A",
+  "fechaVencimientoLicencia": "2028-06-30",
+  "telefono": "0987654321",
+  "email": "carlos@demo.com",
+  "estado": "ACTIVO",
+  "activo": true
+}
+
+Respuesta: 200 OK
+→ Devuelve el conductor creado
+
+
+========================================
+5. CAMPOS REQUERIDOS
+========================================
+
+Register:
+  - nombre (String, obligatorio, max 100)
+  - email (String, obligatorio, formato email)
+  - password (String, obligatorio, min 6, max 100)
+  - rol (String, obligatorio): ROLE_ADMIN, ROLE_COORDINADOR, ROLE_SEGURIDAD
+
+Login:
+  - email (String, obligatorio)
+  - password (String, obligatorio)
+
+Conductor:
+  - nombres (String, obligatorio, max 100)
+  - apellidos (String, obligatorio, max 100)
+  - cedula (String, obligatorio, max 10, único)
+  - numeroLicencia (String, obligatorio, max 30, único)
+  - tipoLicencia (String, obligatorio, max 10)
+  - fechaVencimientoLicencia (LocalDate, obligatorio, formato YYYY-MM-DD)
+  - telefono (String, opcional, max 20)
+  - email (String, opcional, max 255)
+  - estado (String, obligatorio): ACTIVO, INACTIVO, SUSPENDIDO
+  - activo (Boolean, obligatorio): true o false

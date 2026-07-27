@@ -39,12 +39,14 @@ npm install
 npm run dev
 ```
 
-### 4. Probar la demo
-1. Abrir http://localhost:4321
-2. Registrar un usuario
-3. Hacer login
-4. Ver lista de conductores (GET)
-5. Crear un conductor nuevo (POST)
+### 4. Probar la demo con Postman
+1. Instalar Postman desde https://www.postman.com/downloads/
+2. Registrar usuario (POST /api/auth/register)
+3. Login (POST /api/auth/login) → copiar el accessToken
+4. GET conductores (GET /api/conductores) con header Authorization: Bearer token
+5. POST conductor (POST /api/conductores) con header Authorization: Bearer token
+
+Ver `postman-ejemplos.txt` para los bodies exactos.
 
 ## API Endpoints
 | Método | Endpoint | Auth | Descripción |
