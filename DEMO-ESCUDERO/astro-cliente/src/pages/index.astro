@@ -35,8 +35,8 @@ const API_URL = "http://localhost:8080";
       <p class="subtitle">Sistema de Gestión de Recursos Operativos</p>
 
       <div class="tabs">
-        <button class="tab active" onclick="showTab('login')">Iniciar Sesión</button>
-        <button class="tab" onclick="showTab('register')">Registrarse</button>
+        <button class="tab active" id="tab-login" onclick="showTab('login', this)">Iniciar Sesión</button>
+        <button class="tab" id="tab-register" onclick="showTab('register', this)">Registrarse</button>
       </div>
 
       <form id="login-form">
@@ -79,11 +79,11 @@ const API_URL = "http://localhost:8080";
     </div>
 
     <script is:inline define:vars={{ API_URL }}>
-      function showTab(tab) {
+      function showTab(tab, btn) {
         document.getElementById('login-form').style.display = tab === 'login' ? 'block' : 'none';
         document.getElementById('register-form').style.display = tab === 'register' ? 'block' : 'none';
         document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-        event.target.classList.add('active');
+        btn.classList.add('active');
       }
 
       document.getElementById('login-form').addEventListener('submit', async (e) => {
