@@ -1,0 +1,134 @@
+==========================================================================
+  SGROAS — CÓDIGOS DE EXPOSICION (Demo Astro + Spring Boot Backend)
+  María del Rosario Escudero Plaza
+  Exposición Segundo Corte: Frameworks del Back-End
+==========================================================================
+
+========================================
+1. CONFIGURACIÓN DEL BACKEND (Spring Boot)
+========================================
+
+--- application.properties ---
+spring.application.name=sgroas
+spring.datasource.url=jdbc:postgresql://localhost:5432/sgroas_db
+spring.datasource.username=postgres
+spring.datasource.password=chari2005
+spring.jpa.hibernate.ddl-auto=update
+spring.jpa.show-sql=true
+server.port=8080
+app.jwt.secret=SGROAS_SECRET_KEY_DE_DESARROLLO_2026_ENTREGA_1B_CON_MINIMO_32_CARACTERES
+app.jwt.expiration-ms=3600000
+app.jwt.refresh-expiration-ms=604800000
+
+--- SecurityConfig.java (Segmento de rutas) ---
+.authorizeHttpRequests(auth -> auth
+    .requestMatchers("/api/auth/**").permitAll()
+    .requestMatchers("/api/conductores/**").hasAnyAuthority(
+        "ROLE_ADMIN", "ROLE_COORDINADOR"
+    )
+    .anyRequest().authenticated()
+)
+
+--- ConductorController.java ---
+@RestController
+@RequestMapping("/api/conductores")
+public class ConductorController {
+    @GetMapping                    // GET /api/conductores
+    @GetMapping("/{id}")          // GET /api/conductores/{id}
+    @PostMapping                  // POST /api/conductores
+    @PutMapping("/{id}")          // PUT /api/conductores/{id}
+    @DeleteMapping("/{id}")       // DELETE /api/conductores/{id}
+}
+
+--- Conductor Entity (JPA) ---
+@Entity
+@Table(name = "conductores")
+public class Conductor {
+    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+    private String nombres, apellidos, cedula;
+    private String numeroLicencia, tipoLicencia;
+    private LocalDate fechaVencimientoLicencia;
+    private String telefono, email;
+    @Enumerated(EnumType.STRING)
+    private EstadoConductor estado;
+    private Boolean activo;
+    private Instant creadoEn, actualizadoEn;
+}
+
+========================================
+2. FRONTEND ASTRO (Consumo de APIs)
+========================================
+
+--- Login: POST /api/auth/login ---
+const res = await fetch(`${API_URL}/api/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password })
+});
+const data = await res.json();  // { accessToken, refreshToken, nombre, email, rol }
+localStorage.setItem('token', data.accessToken);
+
+--- Registro: POST /api/auth/register ---
+const res = await fetch(`${API_URL}/api/auth/register`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ nombre, email, password, rol })
+});
+
+--- Listar Conductores: GET /api/conductores ---
+const res = await fetch(`${API_URL}/api/conductores?page=0&size=5`, {
+    headers: { 'Authorization': `Bearer ${token}` }
+});
+const data = await res.json();  // { content: [...], totalPages, totalElements, ... }
+
+--- Crear Conductor: POST /api/conductores ---
+const res = await fetch(`${API_URL}/api/conductores`, {
+    method: 'POST',
+    headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+    },
+    body: JSON.stringify({
+        nombres, apellidos, cedula, numeroLicencia,
+        tipoLicencia, fechaVencimientoLicencia,
+        telefono, email, estado
+    })
+});
+
+========================================
+3. BASE DE DATOS (PostgreSQL)
+========================================
+
+--- Estructura (Hibernate auto-genera con ddl-auto=update) ---
+conductores: id, nombres, apellidos, cedula, numero_licencia,
+             tipo_licencia, fecha_vencimiento_licencia, telefono,
+             email, estado, activo, creado_en, actualizado_en
+
+usuarios: id, nombre, email, password, estado, id_rol
+roles: id, nombre, descripcion
+
+--- Conexión ---
+Host: localhost:5432
+Database: sgroas_db
+User: postgres
+
+========================================
+4. ORM / DRIVER
+========================================
+- ORM: Hibernate/JPA (via Spring Boot Starter Data JPA)
+- Driver: PostgreSQL JDBC Driver
+- Configuración: application.properties
+  spring.datasource.url=jdbc:postgresql://localhost:5432/sgroas_db
+  spring.jpa.hibernate.ddl-auto=update
+
+========================================
+5. FLUJO DE LA DEMO
+========================================
+1. Abrir http://localhost:4321 (Astro)
+2. Registrar usuario (POST /api/auth/register)
+3. Login → obtiene JWT token
+4. Redirige a /conductores
+5. Formulario → POST /api/conductores (crea conductor)
+6. Tabla muestra conductores → GET /api/conductores
+7. Paginación funcional
