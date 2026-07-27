@@ -1,0 +1,58 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: sgroas-postgres
+    environment:
+      POSTGRES_DB: sgroas_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5433:5432"
+    volumes:
+      - sgroas_postgres_data:/var/lib/postgresql/data
+    networks:
+      sgroas-network:
+        aliases:
+          - postgres
+
+  redis:
+    image: redis:7
+    container_name: sgroas-redis-compose
+    networks:
+      sgroas-network:
+        aliases:
+          - redis
+          - sgroas-redis-compose
+
+  backend:
+    build: .
+    container_name: sgroas-backend
+    depends_on:
+      - postgres
+      - redis
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/sgroas_db
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      SPRING_REDIS_HOST: redis
+      SPRING_REDIS_PORT: 6379
+
+      APP_JWT_SECRET: SGROAS_SECRET_KEY_DE_DESARROLLO_2026_ENTREGA_1B_CON_MINIMO_32_CARACTERES
+      APP_JWT_EXPIRATION_MS: 3600000
+      APP_JWT_REFRESH_EXPIRATION_MS: 604800000
+    ports:
+      - "8080:8080"
+    networks:
+      sgroas-network:
+        aliases:
+          - backend
+
+volumes:
+  sgroas_postgres_data:
+
+networks:
+  sgroas-network:
+    driver: bridge

@@ -1,0 +1,231 @@
+---
+const API_URL = "http://localhost:8080";
+---
+
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SGROAS - Conductores</title>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body { font-family: 'Segoe UI', Tahoma, sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; }
+      .navbar { background: #1e293b; padding: 1rem 2rem; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #334155; }
+      .navbar h1 { color: #38bdf8; font-size: 1.2rem; }
+      .navbar .user-info { display: flex; align-items: center; gap: 1rem; font-size: 0.85rem; color: #94a3b8; }
+      .navbar .user-info span { color: #e2e8f0; font-weight: 600; }
+      .navbar button { background: #dc2626; color: white; border: none; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; font-size: 0.85rem; }
+      .main { max-width: 1100px; margin: 2rem auto; padding: 0 1.5rem; }
+      .section-title { font-size: 1.3rem; margin-bottom: 1rem; color: #e2e8f0; }
+      .form-card { background: #1e293b; padding: 1.5rem; border-radius: 10px; margin-bottom: 2rem; border: 1px solid #334155; }
+      .form-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; }
+      .form-group { margin-bottom: 0.8rem; }
+      label { display: block; margin-bottom: 0.25rem; font-size: 0.8rem; color: #94a3b8; }
+      input, select { width: 100%; padding: 0.6rem; border: 1px solid #334155; border-radius: 6px; background: #0f172a; color: #e2e8f0; font-size: 0.9rem; }
+      input:focus, select:focus { outline: none; border-color: #38bdf8; }
+      .btn { padding: 0.65rem 1.5rem; border: none; border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-weight: 600; }
+      .btn-primary { background: #2563eb; color: white; }
+      .btn-primary:hover { background: #1d4ed8; }
+      .actions { display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 0.5rem; }
+      table { width: 100%; border-collapse: collapse; background: #1e293b; border-radius: 10px; overflow: hidden; border: 1px solid #334155; }
+      thead { background: #334155; }
+      th { padding: 0.8rem 1rem; text-align: left; font-size: 0.8rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; }
+      td { padding: 0.75rem 1rem; border-top: 1px solid #334155; font-size: 0.9rem; }
+      tr:hover { background: #1a2536; }
+      .badge { padding: 0.2rem 0.6rem; border-radius: 999px; font-size: 0.75rem; font-weight: 600; }
+      .badge-active { background: #064e3b; color: #34d399; }
+      .badge-inactive { background: #7f1d1d; color: #fca5a5; }
+      .msg { padding: 0.75rem; border-radius: 6px; margin-bottom: 1rem; font-size: 0.85rem; display: none; }
+      .msg.ok { display: block; background: #064e3b; color: #34d399; border: 1px solid #065f46; }
+      .msg.err { display: block; background: #7f1d1d; color: #fca5a5; border: 1px solid #991b1b; }
+      .pagination { display: flex; gap: 0.5rem; justify-content: center; margin-top: 1rem; }
+      .pagination button { background: #334155; color: #e2e8f0; border: none; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; }
+      .pagination button:disabled { opacity: 0.4; cursor: not-allowed; }
+      .pagination button.active { background: #2563eb; }
+      .empty { text-align: center; padding: 2rem; color: #64748b; }
+    </style>
+  </head>
+  <body>
+    <nav class="navbar">
+      <h1>SGROAS — Gestión de Conductores</h1>
+      <div class="user-info">
+        <div><span id="user-name">-</span> · <span id="user-role">-</span></div>
+        <button onclick="logout()">Cerrar Sesión</button>
+      </div>
+    </nav>
+
+    <div class="main">
+      <div id="form-msg" class="msg"></div>
+
+      <div class="form-card">
+        <h2 class="section-title">Registrar Nuevo Conductor</h2>
+        <form id="conductor-form">
+          <div class="form-row">
+            <div class="form-group">
+              <label>Nombres</label>
+              <input type="text" id="f-nombres" required />
+            </div>
+            <div class="form-group">
+              <label>Apellidos</label>
+              <input type="text" id="f-apellidos" required />
+            </div>
+            <div class="form-group">
+              <label>Cédula (10 dígitos)</label>
+              <input type="text" id="f-cedula" pattern="\d{10}" maxlength="10" required />
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>N° Licencia</label>
+              <input type="text" id="f-licencia" required />
+            </div>
+            <div class="form-group">
+              <label>Tipo Licencia</label>
+              <select id="f-tipo">
+                <option value="A">A</option>
+                <option value="B">B</option>
+                <option value="C">C</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Vencimiento Licencia</label>
+              <input type="date" id="f-vencimiento" required />
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Teléfono</label>
+              <input type="text" id="f-telefono" />
+            </div>
+            <div class="form-group">
+              <label>Email</label>
+              <input type="email" id="f-email" />
+            </div>
+            <div class="form-group">
+              <label>Estado</label>
+              <select id="f-estado">
+                <option value="ACTIVO">Activo</option>
+                <option value="INACTIVO">Inactivo</option>
+                <option value="SUSPENDIDO">Suspendido</option>
+              </select>
+            </div>
+          </div>
+          <div class="actions">
+            <button type="submit" class="btn btn-primary">Registrar Conductor (POST)</button>
+          </div>
+        </form>
+      </div>
+
+      <h2 class="section-title">Lista de Conductores (GET)</h2>
+      <div id="conductores-table"></div>
+      <div id="pagination" class="pagination"></div>
+    </div>
+
+    <script is:inline define:vars={{ API_URL }}>
+      const API = API_URL;
+      let currentPage = 0;
+      const PAGE_SIZE = 5;
+
+      function getToken() { return localStorage.getItem('token'); }
+
+      function checkAuth() {
+        if (!getToken()) { window.location.href = '/'; return false; }
+        document.getElementById('user-name').textContent = localStorage.getItem('userName') || '-';
+        document.getElementById('user-role').textContent = localStorage.getItem('userRole') || '-';
+        return true;
+      }
+
+      function logout() {
+        localStorage.clear();
+        window.location.href = '/';
+      }
+
+      async function loadConductores(page = 0) {
+        currentPage = page;
+        try {
+          const res = await fetch(`${API}/api/conductores?page=${page}&size=${PAGE_SIZE}&sort=id,desc`, {
+            headers: { 'Authorization': `Bearer ${getToken()}` }
+          });
+          if (res.status === 401 || res.status === 403) { logout(); return; }
+          const data = await res.json();
+          const container = document.getElementById('conductores-table');
+
+          if (!data.content || data.content.length === 0) {
+            container.innerHTML = '<div class="empty">No hay conductores registrados</div>';
+            document.getElementById('pagination').innerHTML = '';
+            return;
+          }
+
+          let html = `<table>
+            <thead><tr>
+              <th>ID</th><th>Nombres</th><th>Apellidos</th><th>Cédula</th>
+              <th>Licencia</th><th>Vencimiento</th><th>Teléfono</th><th>Estado</th>
+            </tr></thead><tbody>`;
+
+          data.content.forEach(c => {
+            const badgeClass = c.activo ? 'badge-active' : 'badge-inactive';
+            html += `<tr>
+              <td>${c.id}</td><td>${c.nombres}</td><td>${c.apellidos}</td><td>${c.cedula}</td>
+              <td>${c.numeroLicencia} (${c.tipoLicencia})</td>
+              <td>${c.fechaVencimientoLicencia}</td><td>${c.telefono || '-'}</td>
+              <td><span class="badge ${badgeClass}">${c.estado}</span></td>
+            </tr>`;
+          });
+          html += '</tbody></table>';
+          container.innerHTML = html;
+
+          let pagHtml = '';
+          pagHtml += `<button ${page === 0 ? 'disabled' : ''} onclick="loadConductores(${page - 1})">Anterior</button>`;
+          pagHtml += `<button class="active">Página ${page + 1} de ${data.totalPages || 1}</button>`;
+          pagHtml += `<button ${data.last ? 'disabled' : ''} onclick="loadConductores(${page + 1})">Siguiente</button>`;
+          document.getElementById('pagination').innerHTML = pagHtml;
+        } catch (err) {
+          document.getElementById('conductores-table').innerHTML = '<div class="empty">Error al cargar conductores</div>';
+        }
+      }
+
+      document.getElementById('conductor-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const msg = document.getElementById('form-msg');
+        msg.className = 'msg';
+        const body = {
+          nombres: document.getElementById('f-nombres').value,
+          apellidos: document.getElementById('f-apellidos').value,
+          cedula: document.getElementById('f-cedula').value,
+          numeroLicencia: document.getElementById('f-licencia').value,
+          tipoLicencia: document.getElementById('f-tipo').value,
+          fechaVencimientoLicencia: document.getElementById('f-vencimiento').value,
+          telefono: document.getElementById('f-telefono').value,
+          email: document.getElementById('f-email').value,
+          estado: document.getElementById('f-estado').value
+        };
+        try {
+          const res = await fetch(`${API}/api/conductores`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${getToken()}`
+            },
+            body: JSON.stringify(body)
+          });
+          if (res.ok) {
+            msg.className = 'msg ok';
+            msg.textContent = `Conductor "${body.nombres} ${body.apellidos}" registrado exitosamente (ID: ${(await res.json()).id})`;
+            e.target.reset();
+            loadConductores(0);
+          } else {
+            const err = await res.json();
+            msg.className = 'msg err';
+            msg.textContent = err.message || JSON.stringify(err);
+          }
+        } catch (err) {
+          msg.className = 'msg err';
+          msg.textContent = 'Error de conexión con el backend';
+        }
+      });
+
+      if (checkAuth()) loadConductores(0);
+    </script>
+  </body>
+</html>
