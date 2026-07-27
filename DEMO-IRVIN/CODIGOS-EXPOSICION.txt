@@ -1,0 +1,182 @@
+Astro queda disponible en: http://localhost:4321
+Backend disponible en:      http://localhost:8080
+Swagger disponible en:      http://localhost:8080/swagger-ui.html
+Actuator health en:         http://localhost:8080/actuator/health
+
+Admin de desarrollo (seed.sql): admin@sgb-saas.local / Admin123!
+IMPORTANTE: ese admin tiene rol ADMIN, pero /api/v1/libros solo acepta
+LECTOR/BIBLIOTECARIO/GERENTE. Para poder crear/editar/eliminar libros en
+vivo, cambia su rol en la BD (o el de un usuario registrado) a
+BIBLIOTECARIO o GERENTE antes de la exposicion:
+
+  UPDATE usuario_roles SET rol_id = (SELECT id FROM roles WHERE nombre = 'BIBLIOTECARIO')
+  WHERE usuario_id = (SELECT id FROM usuarios WHERE correo = 'admin@sgb-saas.local');
+
+
+--- INICIO DEL FRAGMENTO REGISTRO ---
+const respuesta = await fetch(API_BASE + '/api/auth/registro', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ nombre, apellido, correo, password }),
+});
+if (!respuesta.ok) {
+    await manejarErrorHttp(respuesta, 'msg-registro');
+    return;
+}
+const usuario = await respuesta.json();
+mostrarMensaje('msg-registro', 'Usuario "' + usuario.correo + '" registrado con rol LECTOR.', 'exito');
+--- FIN DEL FRAGMENTO REGISTRO ---
+
+
+--- INICIO DEL FRAGMENTO LOGIN ---
+// credentials: 'include' es obligatorio: sin esto el navegador descarta
+// la cookie HttpOnly "refreshToken" que viaja en la respuesta.
+const respuesta = await fetch(API_BASE + '/api/auth/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ correo, password }),
+});
+if (!respuesta.ok) {
+    await manejarErrorHttp(respuesta, 'msg-login');
+    return;
+}
+const datos = await respuesta.json();
+sessionStorage.setItem(TOKEN_KEY, datos.accessToken); // el refreshToken NO viaja aqui
+mostrarMensaje('msg-login', 'Sesion iniciada (expira en ' + datos.expiresIn + 's).', 'exito');
+--- FIN DEL FRAGMENTO LOGIN ---
+
+
+--- INICIO DEL FRAGMENTO REFRESH ---
+// No se envia ningun token manualmente: el navegador adjunta la cookie
+// HttpOnly "refreshToken" automaticamente porque coincide su Path (/api/auth).
+const respuesta = await fetch(API_BASE + '/api/auth/refresh', {
+    method: 'POST',
+    credentials: 'include',
+});
+if (!respuesta.ok) {
+    await manejarErrorHttp(respuesta, 'msg-login');
+    return;
+}
+const datos = await respuesta.json();
+sessionStorage.setItem(TOKEN_KEY, datos.accessToken);
+mostrarMensaje('msg-login', 'accessToken renovado usando la cookie refreshToken.', 'exito');
+--- FIN DEL FRAGMENTO REFRESH ---
+
+
+--- INICIO DEL FRAGMENTO LOGOUT ---
+const token = sessionStorage.getItem(TOKEN_KEY);
+const respuesta = await fetch(API_BASE + '/api/auth/logout', {
+    method: 'POST',
+    credentials: 'include',
+    headers: { Authorization: 'Bearer ' + token },
+});
+if (respuesta.status === 204) {
+    sessionStorage.removeItem(TOKEN_KEY);
+    mostrarMensaje('msg-login', 'Sesion cerrada y token revocado (blacklist en Redis).', 'exito');
+}
+--- FIN DEL FRAGMENTO LOGOUT ---
+
+
+--- INICIO DEL FRAGMENTO GET (listar libros) ---
+const token = sessionStorage.getItem(TOKEN_KEY);
+if (!token) {
+    mostrarMensaje('msg-libros', 'Debes iniciar sesion antes de listar libros.', 'error');
+    return;
+}
+try {
+    const respuesta = await fetch(API_BASE + '/api/v1/libros?page=0&size=10', {
+        method: 'GET',
+        headers: { Authorization: 'Bearer ' + token },
+    });
+    if (!respuesta.ok) {
+        await manejarErrorHttp(respuesta, 'msg-libros');
+        return;
+    }
+    const pagina = await respuesta.json();
+    const libros = pagina.content ?? pagina;
+    renderLibros(libros);
+    mostrarMensaje('msg-libros', 'Se listaron ' + libros.length + ' libro(s) desde PostgreSQL.', 'exito');
+} catch (error) {
+    mostrarMensaje('msg-libros', 'No se pudo conectar con el backend: ' + error.message, 'error');
+}
+--- FIN DEL FRAGMENTO GET ---
+
+
+--- INICIO DEL FRAGMENTO POST (crear libro) ---
+// Requiere rol BIBLIOTECARIO o GERENTE (@PreAuthorize en LibroController);
+// con rol LECTOR el backend responde 403 Forbidden.
+const token = sessionStorage.getItem(TOKEN_KEY);
+try {
+    const respuesta = await fetch(API_BASE + '/api/v1/libros', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            Authorization: 'Bearer ' + token,
+        },
+        body: JSON.stringify({
+            titulo, isbn, anioPublicacion, resumen: '', portadaUrl: '',
+            editorialId, idiomaId, estadoId, stockTotal, stockDisponible,
+        }),
+    });
+    if (!respuesta.ok) {
+        await manejarErrorHttp(respuesta, 'msg-libro-form');
+        return;
+    }
+    const libroCreado = await respuesta.json();
+    mostrarMensaje('msg-libro-form', 'Libro "' + libroCreado.titulo + '" creado correctamente.', 'exito');
+    await listarLibros();
+} catch (error) {
+    mostrarMensaje('msg-libro-form', 'No se pudo conectar con el backend: ' + error.message, 'error');
+}
+--- FIN DEL FRAGMENTO POST ---
+
+
+--- INICIO DEL FRAGMENTO PUT (actualizar libro) ---
+const token = sessionStorage.getItem(TOKEN_KEY);
+try {
+    const respuesta = await fetch(API_BASE + '/api/v1/libros/' + libroIdSeleccionado, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json',
+            Authorization: 'Bearer ' + token,
+        },
+        body: JSON.stringify({
+            titulo, isbn, anioPublicacion, resumen: '', portadaUrl: '',
+            editorialId, idiomaId, estadoId, stockTotal, stockDisponible,
+        }),
+    });
+    if (!respuesta.ok) {
+        await manejarErrorHttp(respuesta, 'msg-libro-form');
+        return;
+    }
+    const libroActualizado = await respuesta.json();
+    mostrarMensaje('msg-libro-form', 'Libro "' + libroActualizado.titulo + '" actualizado correctamente.', 'exito');
+    await listarLibros();
+} catch (error) {
+    mostrarMensaje('msg-libro-form', 'No se pudo conectar con el backend: ' + error.message, 'error');
+}
+--- FIN DEL FRAGMENTO PUT ---
+
+
+--- INICIO DEL FRAGMENTO DELETE (eliminar libro) ---
+const token = sessionStorage.getItem(TOKEN_KEY);
+const confirmado = confirm('¿Eliminar este libro?');
+if (!confirmado) return;
+try {
+    const respuesta = await fetch(API_BASE + '/api/v1/libros/' + id, {
+        method: 'DELETE',
+        headers: { Authorization: 'Bearer ' + token },
+    });
+    if (respuesta.status === 204) {
+        mostrarMensaje('msg-libros', 'Libro eliminado correctamente.', 'exito');
+        await listarLibros();
+        return;
+    }
+    if (!respuesta.ok) {
+        await manejarErrorHttp(respuesta, 'msg-libros');
+    }
+} catch (error) {
+    mostrarMensaje('msg-libros', 'No se pudo conectar con el backend: ' + error.message, 'error');
+}
+--- FIN DEL FRAGMENTO DELETE ---
