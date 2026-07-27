@@ -1,0 +1,151 @@
+Astro queda disponible en: http://localhost:4321
+Backend disponible en:      http://localhost:8080
+Swagger disponible en:      http://localhost:8080/api/swagger-ui.html
+
+
+--- INICIO DEL FRAGMENTO GET ---
+mostrarMensaje('mascotas', '', '');
+const token = sessionStorage.getItem(TOKEN_KEY);
+if (!token) {
+    mostrarMensaje('mascotas', 'Debes iniciar sesión antes de listar mascotas.', 'error');
+    return;
+}
+try {
+    const respuesta = await fetch(API_BASE + '/api/mascotas', {
+        method: 'GET',
+        headers: { Authorization: 'Bearer ' + token },
+    });
+    if (!respuesta.ok) {
+        await manejarErrorHttp(respuesta, 'mascotas');
+        return;
+    }
+    const datos = await respuesta.json();
+    const mascotas = Array.isArray(datos) ? datos : (datos.content ?? []);
+    mascotasCache = mascotas;
+    renderMascotas(mascotas);
+    mostrarMensaje('mascotas', 'Se listaron ' + mascotas.length + ' mascota(s) desde PostgreSQL.', 'exito');
+} catch (error) {
+    mostrarMensaje('mascotas', 'No se pudo conectar con el backend: ' + error.message, 'error');
+}
+--- FIN DEL FRAGMENTO GET ---
+
+
+--- INICIO DEL FRAGMENTO POST ---
+const token = sessionStorage.getItem(TOKEN_KEY);
+const duenioId = sessionStorage.getItem(USUARIO_ID_KEY);
+if (!token || !duenioId) {
+    mostrarMensaje('mascotas', 'Debes iniciar sesión antes de registrar una mascota.', 'error');
+    return;
+}
+const nombre = document.getElementById('mascota-nombre').value.trim();
+const especie = document.getElementById('mascota-especie').value.trim();
+const raza = document.getElementById('mascota-raza').value.trim();
+const fechaNacimiento = document.getElementById('mascota-fecha-nacimiento').value;
+if (!nombre || !especie || !raza || !fechaNacimiento) {
+    mostrarMensaje('mascotas', 'Completa todos los campos del formulario.', 'error');
+    return;
+}
+try {
+    const respuesta = await fetch(API_BASE + '/api/mascotas', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            Authorization: 'Bearer ' + token,
+        },
+        body: JSON.stringify({
+            duenioId: Number(duenioId),
+            nombre,
+            especie,
+            raza,
+            fechaNacimiento,
+        }),
+    });
+    if (!respuesta.ok) {
+        await manejarErrorHttp(respuesta, 'mascotas');
+        return;
+    }
+    const mascotaCreada = await respuesta.json();
+    mostrarMensaje('mascotas', 'Mascota "' + mascotaCreada.nombre + '" registrada correctamente.', 'exito');
+    limpiarFormularioMascota();
+    await listarMascotas();
+} catch (error) {
+    mostrarMensaje('mascotas', 'No se pudo conectar con el backend: ' + error.message, 'error');
+}
+--- FIN DEL FRAGMENTO POST ---
+
+
+--- INICIO DEL FRAGMENTO PUT ---
+const token = sessionStorage.getItem(TOKEN_KEY);
+if (!token || !mascotaIdSeleccionada) {
+    mostrarMensaje('mascotas', 'Selecciona una mascota para editar.', 'error');
+    return;
+}
+const nombre = document.getElementById('mascota-nombre').value.trim();
+const especie = document.getElementById('mascota-especie').value.trim();
+const raza = document.getElementById('mascota-raza').value.trim();
+const fechaNacimiento = document.getElementById('mascota-fecha-nacimiento').value;
+const duenioId = sessionStorage.getItem(USUARIO_ID_KEY);
+if (!nombre || !especie || !raza || !fechaNacimiento) {
+    mostrarMensaje('mascotas', 'Completa todos los campos del formulario.', 'error');
+    return;
+}
+try {
+    const respuesta = await fetch(API_BASE + '/api/mascotas/' + mascotaIdSeleccionada, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json',
+            Authorization: 'Bearer ' + token,
+        },
+        body: JSON.stringify({
+            duenioId: Number(duenioId),
+            nombre,
+            especie,
+            raza,
+            fechaNacimiento,
+        }),
+    });
+    if (!respuesta.ok) {
+        await manejarErrorHttp(respuesta, 'mascotas');
+        return;
+    }
+    const mascotaActualizada = await respuesta.json();
+    mostrarMensaje('mascotas', 'Mascota "' + mascotaActualizada.nombre + '" actualizada correctamente.', 'exito');
+    cancelarEdicion();
+    await listarMascotas();
+} catch (error) {
+    mostrarMensaje('mascotas', 'No se pudo conectar con el backend: ' + error.message, 'error');
+}
+--- FIN DEL FRAGMENTO PUT ---
+
+
+--- INICIO DEL FRAGMENTO DELETE ---
+const token = sessionStorage.getItem(TOKEN_KEY);
+if (!token || !mascotaIdSeleccionada) {
+    mostrarMensaje('mascotas', 'Selecciona una mascota para eliminar.', 'error');
+    return;
+}
+const confirmado = confirm('¿Eliminar esta mascota? Esta acción realiza un borrado lógico.');
+if (!confirmado) {
+    return;
+}
+try {
+    const respuesta = await fetch(API_BASE + '/api/mascotas/' + mascotaIdSeleccionada, {
+        method: 'DELETE',
+        headers: { Authorization: 'Bearer ' + token },
+    });
+    if (respuesta.status === 204) {
+        mostrarMensaje('mascotas', 'Mascota eliminada correctamente (borrado lógico).', 'exito');
+        mascotaIdSeleccionada = null;
+        await listarMascotas();
+        return;
+    }
+    if (!respuesta.ok) {
+        await manejarErrorHttp(respuesta, 'mascotas');
+    }
+} catch (error) {
+    mostrarMensaje('mascotas', 'No se pudo conectar con el backend: ' + error.message, 'error');
+}
+--- FIN DEL FRAGMENTO DELETE ---
+
+
+
