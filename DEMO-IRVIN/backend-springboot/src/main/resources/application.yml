@@ -1,0 +1,76 @@
+spring:
+  application:
+    name: backend
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/sgb_db}
+    username: ${DB_USER:sgb_user}
+    password: ${DB_PASSWORD:changeme}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+        default_schema: public
+  flyway:
+    enabled: true
+    # DEMO-SGB (autocontenida): database/migrations/ vive DENTRO de
+    # backend-springboot/ (no un nivel arriba como en el repo original),
+    # asi que la misma ruta relativa sirve tanto para `mvnw`/jar local
+    # (cwd = backend-springboot/) como dentro del contenedor Docker
+    # (cwd = /app, donde el Dockerfile copia database/migrations a
+    # /app/database/migrations). Por eso ya no hace falta sobreescribir
+    # este valor con SPRING_FLYWAY_LOCATIONS en docker-compose.yml.
+    locations: filesystem:database/migrations
+    baseline-on-migrate: true
+    # IMPORTANTE (mantenimiento): baseline-on-migrate SOLO se activa cuando
+    # el schema ya tiene tablas pero no existe flyway_schema_history (caso
+    # real: DB creada desde db/schema.sql vía docker-entrypoint-initdb.d,
+    # que ya nace en el estado final). Sin baseline-version explícito,
+    # Flyway bautiza en la versión 1 por defecto y luego SÍ intenta
+    # ejecutar V2+, chocando contra tablas que ya existen. baseline-version
+    # debe ser siempre la migración más alta cuyos cambios ya estén
+    # reflejados en db/schema.sql — subirlo cada vez que se agregue una
+    # migración nueva Y se regenere el snapshot para incluirla (ver
+    # docs/adr/adr-006-estrategia-schema-reproducible.md). Actualmente: V3
+    # (V3__multas_multiples_por_prestamo.sql: quita el UNIQUE de
+    # multas.prestamo_id, ya reflejado en db/schema.sql).
+    baseline-version: 3
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+
+server:
+  port: 8080
+
+app:
+  cache:
+    libros:
+      # TTL del cache Redis del listado de libros (@Cacheable("libros") en
+      # LibroService.listar(), GET /api/v1/libros), en segundos. Config
+      # externa (no hardcodeada en Java) -- ver RedisConfig y
+      # docs/adr/adr-008-ttl-cache-libros.md. Se invalida antes de tiempo
+      # via @CacheEvict en crear/actualizar/eliminar de LibroService.
+      ttl-seconds: ${CACHE_LIBROS_TTL_SECONDS:300}
+
+security:
+  jwt:
+    secret: ${JWT_SECRET:CAMBIAR_EN_PRODUCCION_MIN_256_BITS}
+    expiration-ms: 3600000
+    refresh-expiration-ms: 604800000
+
+springdoc:
+  api-docs:
+    path: /api/docs
+  swagger-ui:
+    path: /swagger-ui.html
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info, metrics
