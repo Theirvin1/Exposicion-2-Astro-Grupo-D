@@ -1,0 +1,13 @@
+# Variables de entorno reales (nunca subir)
+.env
+
+# Backend
+backend-springboot/target/
+
+# Astro / Node
+astro-cliente/node_modules/
+astro-cliente/dist/
+astro-cliente/.astro/
+
+# Datos generados por Docker (volumen ya persiste aparte, esto es por si acaso)
+db/init/*.tmp

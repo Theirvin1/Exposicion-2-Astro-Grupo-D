@@ -1,0 +1,72 @@
+# ==================================================
+# DEMO-SGB - Docker Compose
+# ==================================================
+# Levanta unicamente lo necesario para la demostracion:
+#   - PostgreSQL (base de datos real, precargada con schema+procs+seed
+#     via db/init/01-consolidado.sql)
+#   - Redis (cache de /api/v1/libros y lista negra de tokens JWT)
+#   - Backend Spring Boot (API REST)
+#
+# El cliente Astro NO se incluye aqui: se ejecuta aparte con
+# "npm run dev" (ver astro-cliente/ y EXPLICACION-ASTRO-FETCH.md).
+# El frontend Angular original tampoco se incluye: esta demo reemplaza
+# esa pieza por el cliente Astro.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: sgb-demo-postgres
+    environment:
+      POSTGRES_DB: ${DB_NAME:-sgb_db}
+      POSTGRES_USER: ${DB_USER:-sgb_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-changeme}
+    ports:
+      - "5433:5432"
+    volumes:
+      - sgb_demo_postgres_data:/var/lib/postgresql/data
+      # Precarga schema + procs + seed en la primera inicializacion del
+      # volumen (ver db/init/01-consolidado.sql, generado a partir de
+      # db/schema.sql + db/procs/*.sql + db/seed.sql del repo original).
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-sgb_user} -d ${DB_NAME:-sgb_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: sgb-demo-redis
+    ports:
+      - "6380:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build: ./backend-springboot
+    container_name: sgb-demo-backend
+    env_file: .env
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/${DB_NAME:-sgb_db}
+      DB_USER: ${DB_USER:-sgb_user}
+      DB_PASSWORD: ${DB_PASSWORD:-changeme}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+
+volumes:
+  sgb_demo_postgres_data:
